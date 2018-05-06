@@ -12,7 +12,7 @@ The server writing in Python
 3. Using the select system function to detect the IO operations
 '''
 
-import socket
+import socket, random, threading
 import sys, select, os, time
 from multiprocessing import *
 
@@ -29,7 +29,9 @@ class infomation:
     5. Information can be create by Server or handle
     '''
     def __init__(self):
-        # init the msg class
+        pass
+
+    def __del__(self):
         pass
 
     def get_msg_type(self):
@@ -55,25 +57,42 @@ class handle:
     Before quit from the server, need to send a quit msg or the wrong quit send
     the empty string
     '''
-    def __init__(self):
+    def __init__(self, s, addr, pipe):
         # using socket and addr to init the subprocess
-        pass
+        self.socket = s
+        self.addr = addr
+        self.pipe = pipe
+
+    def __del__(self):
+        self.socket.close()
+        self.pipe.close()
+        print(self.addr, "close the connection")
 
     def detect_request(self):
-        # detect [server msg, client msg]
-        pass
+        # detect [self.socket(r), self.pipe(r)]
+        rlist = [self.pipe, self.socket]
+        rlist, _, _ = select.select(rlist, [], [], 0.01)
+        return rlist
 
-    def send_msg(self):
-        # send the information to sercer
-        pass
-
-    def recv_msg(self):
-        # recv the information from the server
-        pass
+    def send_msg(self, msg):
+        # send the information class to server
+        self.pipe.send(msg)
 
     def serve_forever(self):
-        # mainloop 
-        pass
+        # mainloop
+        while True:
+            for fileno in self.detect_request():
+                if isinstance(fileno, socket.socket):
+                    string = self.socket.recv(1024)
+                    if not string:
+                        # send the close infomation class to the server, and wait for 
+                        # dead to use the `__del__` function
+                        pass
+                    else:
+                        # the normal talk or normal quit
+                        print(string)
+                else:
+                    msg = fileno.recv()
 
 class server:
     '''
@@ -94,17 +113,16 @@ class server:
 
         # server running
         self.run = True
+        self.processes = []
 
     def append_user(self, uid, uname, pipeline):
-        # create the user entry and the subprocess
-        if self.usertable[uid]: 
+        if self.usertable.get(uid): 
             # the uid of the user is already existed, WRONG!
             return False
         self.usertable[uid] = [uname, pipeline]
         return True
 
     def delete_user(self, uid):
-        # delete the user entry and the subprocess
         if not self.usertable.get(uid):
             # the user is not in the table, WRONG
             return False
@@ -112,23 +130,17 @@ class server:
         return True
 
     def search_user(self, uid):
-        # search the user table and process table, return [uname, piepline]
-        if self.usertable.get(uid): return self.usertable[uid]
-        else: return False
+        return self.usertable.get(uid)
 
     def detect_request(self):
-        # use select function to detect the msg from the subprocess
-        # detect the pipe line of the processes(clients - users)
-        readlist = [pipe for user in self.usertable]
-        rlist, _, _ = select.select(readlist, [], [], 0.1)
-        if not rlist: return None
-        else: return rlist
+        readlist = [user[1] for key, user in self.usertable.items()]
+        rlist, _, _ = select.select(readlist, [], [], 0.01)
+        return rlist
 
     def recv_msg(self, pipeline):
         return pipeline.recv()
 
     def send_msg(self, pipeline, msg):
-        # send the msg to the subprocess
         pipeline.send(msg)
 
     def data_getter(self):
@@ -143,15 +155,13 @@ class server:
 
     def verify(self):
         # verify the user
-        pass
+        return [random.randint(0, 100), 'lantian']
 
     def get_accept(self):
-        # mainloop
-        # this process get the connection from the clients and create the
-        # the subprocess to handle them.
         while self.run:
             conn, addr = self.socket.accept()
             print("connected by", addr)
+
             # verification the user
             res = self.verify()
             # if the user is in the database
@@ -165,23 +175,22 @@ class server:
             handler = handle(conn, addr, spipe)
             self.append_user(uid, uname, fpipe)
             # start the subprocess to server the specifial client
-            subprocess = Process(target = handler.serve_forever)
+            subprocess = Process(target=handler.serve_forever)
             subprocess.start()
 
             # append the user into the table to record
             self.append_user(uid, uname, fpipe)
-
+            self.processes.append(subprocess)
             # the end of the handler is in the `delete_user` function to do this 
     
     def serve_forever(self):
         # start subprocess to get the connect
-        s1 = Process(target = self.get_accept)
+        s1 = threading.Thread(target = self.get_accept)
         s1.start()
 
         # check to serve all the subprocess of the client connectors
         while True:
             print(self.usertable, end='\r')
-            
             res = self.detect_request()
             if not res: continue
 

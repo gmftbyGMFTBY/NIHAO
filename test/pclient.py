@@ -7,7 +7,7 @@
 This script with the server.py to test whether the server work well
 '''
 
-import socket
+import socket, time
 
 if __name__ == "__main__":
     host = ''
@@ -15,4 +15,4 @@ if __name__ == "__main__":
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((host, port))
         s.sendall(b'Hello world!')
-        
+        time.sleep(100)
