@@ -20,11 +20,12 @@ def pack_msg(count, msgtype, data):
     # pack the msg to information class, data is the list
     infor = information()
     infor.msgtype = msgtype
-    if msgtype == 1:
+    if msgtype == 1 or msgtype == 11:
         infor.sender = data[0]
         infor.recvnumber = int(data[1])
         infor.recever = data[2: (2 + infor.recvnumber)]
-        infor.content = data[2 + infor.recvnumber]
+        infor.content = data[2 + infor.recvnumber: ]
+    elif msgtype == 12: infor.recever = data[0]
     else:
         infor.msgtype = msgtype
         infor.count = count
@@ -47,25 +48,25 @@ class information:
     6. Content
         1. type:
             0. unknow
-            1. talk msg
+            √1. talk msg
                 sender, recevernumber, recever(s), content
             2. create group
             3. operate group
             4. register
-            # 5. login
+            √5. login
             6. exit from client
-            7. make friend
+            √7. make friend
             8. in group
             9. in BBS
             10. user set
-            11. send file
-            12. get users
+            11. send the file
+            √12. get users
             13. chat record
             14. out group
             15. delete friend
             16. get back the msg
             17. exit from server
-            18. talk feedback, successfully or not
+            √18. talk feedback, successfully or not
         2. count: the number of the msgs
         3. content: the count of the msg
     '''
@@ -117,7 +118,7 @@ class handle:
                     else:
                         # send from client
                         msg_count = int(msg_count)
-                        msgtype = int(self.socket.recv(1).decode())
+                        msgtype = int(self.socket.recv(1024).decode())
                         infor = pack_msg(msg_count, msgtype, get_msg(msg_count, self.socket))
                         self.pipe.send(infor)
                 else:
@@ -128,11 +129,21 @@ class handle:
                         self.socket.close()
                         self.pipe.close()
                         exit(0)
-                    elif infor.msgtype == 1:
-                        self.socket.send(infor.content.encode('utf8'))
+                    elif infor.msgtype == 1 or infor.msgtype == 11:
+                        self.socket.send(str(infor.msgtype).encode())
+                        time.sleep(0.05)
+                        self.socket.send(str(len(infor.content)).encode())
+                        time.sleep(0.05)
+                        for i in range(len(infor.content)):
+                            time.sleep(0.05)
+                            self.socket.send(infor.content[i].encode('utf8'))
                     elif infor.msgtype == 18:
                         self.socket.send(str(infor.count).encode())
                         for i in range(infor.count):
+                            self.socket.send(infor.content[i].encode())
+                    elif infor.msgtype == 12:
+                        self.socket.send(str(len(infor.content)).encode())
+                        for i in range(len(infor.content)):
                             self.socket.send(infor.content[i].encode())
                     else: pass
 
@@ -233,12 +244,12 @@ class server:
             for rfile in res:
                 msg = rfile.recv()    # get the information class
                 # action
-                if msg.msgtype == 1:
+                if msg.msgtype == 1 or msg.msgtype == 11:
                     # the talk msg to other clients(users), need to send the feedbakc for the sender
                     succ, failer = True, []
                     for i in range(msg.recvnumber):
                         new_infor = information()
-                        new_infor.msgtype, new_infor.sender, new_infor.recever, new_infor.content = 1, msg.sender, msg.recever[i], msg.content
+                        new_infor.msgtype, new_infor.sender, new_infor.recever, new_infor.content = msg.msgtype, msg.sender, msg.recever[i], msg.content
                         searchres = self.search_user(new_infor.recever)
                         if searchres: searchres.send(new_infor)
                         else:
@@ -252,11 +263,19 @@ class server:
                     # quit from the client
                     if self.delete_user(msg.content): print(f"Delete user {msg.content}")
                     else: print(f"{msg.content} do not exist")
+                elif msg.msgtype == 12:
+                    # get user table
+                    infor = information()
+                    infor.msgtype, infor.content = 12, [user[0] for key, user in self.usertable.items()]
+                    self.search_user(msg.recever).send(infor)
+                elif msg.msgtype == 7:
+                    # send directory or send into the database
+                    pass
                 else: pass
 
 if __name__ == "__main__":
     host  = ''
-    port  = 50005
+    port  = 50000
     print("Server begin ...")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         # init the socket of the server
