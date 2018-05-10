@@ -38,6 +38,7 @@ if __name__ == "__main__":
 
         # talk to myself
         # send the file
+        '''
         data = []
         with open('test.py') as f:
             while True:
@@ -73,4 +74,14 @@ if __name__ == "__main__":
         for i in range(succ):
             print(s.recv(1024).decode())
             time.sleep(0.0005)
+        '''
+        # become the friend
+        s.send(b'2')
+        time.sleep(0.01)
+        s.send(b'7')
+        time.sleep(0.01)
+        s.send(b"lantian")
+        time.sleep(0.01)
+        s.send(b"lantian")
+        print(s.recv(1024))
 

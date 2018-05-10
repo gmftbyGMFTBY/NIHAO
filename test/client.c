@@ -7,9 +7,10 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <netdb.h>
+#include <time.h>
 
-#define PORT 3333
-#define MAXDATASIZE 100
+#define PORT 50000 
+#define MAXDATASIZE 1024
 
 /*
    this is a test client for the server writing in C, and server is writing in Python
@@ -46,13 +47,36 @@ int main(int argc, char* argv[])
         printf("connect error!\n");
         exit(1);
     }
-
+    
+    /*
     if ((recvbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
         printf("recv error!\n");
         exit(1);
     }
     buf[recvbytes] = '\0';
     printf("get %s\n", buf, recvbytes);
+    */
+    strcpy(buf, "lantian");
+    write(sockfd, buf, strlen(buf));
+    perror("write");
+    sleep(1);
+    strcpy(buf, "lt970106");
+    int recv = write(sockfd, buf, strlen(buf));
+    sleep(1);
+    strcpy(buf, "2");
+    write(sockfd, buf, strlen(buf));
+    sleep(1);
+    strcpy(buf, "7");
+    write(sockfd, buf, strlen(buf));
+    sleep(1);
+    strcpy(buf, "lantian");
+    write(sockfd, buf, strlen(buf));
+    sleep(1);
+    strcpy(buf, "lantian");
+    write(sockfd, buf, strlen(buf));
+    sleep(1);
+    read(sockfd, buf, MAXDATASIZE);
+    printf("replay: %s\n", buf);
     close(sockfd);
     return 0;
 }

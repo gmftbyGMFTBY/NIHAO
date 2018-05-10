@@ -26,6 +26,7 @@ def pack_msg(count, msgtype, data):
         infor.recever = data[2: (2 + infor.recvnumber)]
         infor.content = data[2 + infor.recvnumber: ]
     elif msgtype == 12: infor.recever = data[0]
+    elif msgtype == 7: infor.sender, infor.friend = data[0], data[1]
     else:
         infor.msgtype = msgtype
         infor.count = count
@@ -55,7 +56,7 @@ class information:
             4. register
             √5. login
             6. exit from client
-            √7. make friend
+            √7. make friend or the make friend replay
             8. in group
             9. in BBS
             10. user set
@@ -64,7 +65,6 @@ class information:
             13. chat record
             14. out group
             15. delete friend
-            16. get back the msg
             17. exit from server
             √18. talk feedback, successfully or not
         2. count: the number of the msgs
@@ -98,10 +98,6 @@ class handle:
         rlist = [self.pipe, self.socket]
         rlist, _, _ = select.select(rlist, [], [], 0.01)
         return rlist
-
-    def send_msg(self, msg):
-        # send the information class to server
-        self.pipe.send(msg)
 
     def serve_forever(self):
         # mainloop
@@ -145,6 +141,8 @@ class handle:
                         self.socket.send(str(len(infor.content)).encode())
                         for i in range(len(infor.content)):
                             self.socket.send(infor.content[i].encode())
+                    elif infor.msgtype == 7:
+                        self.socket.send(infor.replay.encode())
                     else: pass
 
 class server:
@@ -259,6 +257,9 @@ class server:
                     infor = information()
                     infor.msgtype, infor.count, infor.content = 18, len(failer), failer
                     rfile.send(infor)
+
+                    # for the failer msg, append it into the database
+
                 elif msg.msgtype == 6:
                     # quit from the client
                     if self.delete_user(msg.content): print(f"Delete user {msg.content}")
@@ -270,7 +271,8 @@ class server:
                     self.search_user(msg.recever).send(infor)
                 elif msg.msgtype == 7:
                     # send directory or send into the database
-                    pass
+                    msg.replay = "successfully add with the friend with"
+                    self.search_user(msg.sender).send(msg)
                 else: pass
 
 if __name__ == "__main__":
